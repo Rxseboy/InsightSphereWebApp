@@ -20,6 +20,7 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, Dense, Activation,SimpleRNN
 from sklearn.neural_network import MLPRegressor
 from sklearn import metrics
+
 tf.random.set_seed(7)
 
 st.sidebar.image("https://github.com/Rxseboy/InsightSphere/blob/main/WhatsApp%20Image%202023-06-01%20at%2020.06.00.jpeg?raw=true")
@@ -34,7 +35,7 @@ class stock_predict_DL:
     def __init__(self,comp_df):
         # reseved method in python classes (Constructor)
         # We are taking only the Open prices for predicting 
-        data = comp_df.filter(['Open'])
+        data = comp_df.filter(['Close'])
         dataset = data.values
         # We take 90% of the data for training and 10% for testing 
         st.subheader('How much percent of the data needs to be allocated for training?')
@@ -263,8 +264,20 @@ elif option == "Upload the data (.csv format)":
         flag = "True"
         st.header('**Stock data**')
         st.write(data)
+        
 
-if(flag == "True"): 
+if(flag == "True"):
+    st.subheader('Visualization Price')
+    data['Years'] = pd.to_datetime(data['Date'])
+    pr = st.selectbox('', ["Click to select", "Open","Close","High","Low"])
+    if pr =="Open":
+        st.line_chart(data=data, x='Years',y='Open')
+    elif pr =="Close":
+        st.line_chart(data=data, x='Years',y='Close')
+    elif pr =="High":
+        st.line_chart(data=data, x='Years',y='High')
+    elif pr =="Low":
+        st.line_chart(data=data, x='Years',y='Low')
     # by default it is set that the stock price of a particular day is to be predicted based on the trend of the previous 60 days
     # the user is free to input the time frame based on which they want to predict a particular day's stock
     st.subheader('Define time window length:')
