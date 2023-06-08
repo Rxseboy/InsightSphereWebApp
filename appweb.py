@@ -41,49 +41,49 @@ class stock_predict_DL:
         st.subheader('How much percent of the data needs to be allocated for training?')
         st.text('Default is set to 90')
         perc_train = st.number_input('',step = 1,min_value=1, value = 90)
-        training_data_len = int(np.ceil(len(dataset) * (perc_train/100)))
+        training_data = int(np.ceil(len(dataset) * (perc_train/100)))
         # We are scaling the open prices to the range(0,1)
         self.scaler = MinMaxScaler(feature_range=(0,1))
         scaled_data = self.scaler.fit_transform(dataset)
         # Taking the first 90% of the dataset for training 
-        train_data = scaled_data[0:int(training_data_len), :]
-        # Split the data into self.X_train and self.y_train data sets
-        self.X_train = []
+        train_data = scaled_data[0:int(training_data), :]
+        # Split the data into self.x_train and self.y_train data sets
+        self.x_train = []
         self.y_train = []
         
         # We are taking predicting the open price of a given day based on the trend in the previous 60 days
         for i in range(k, len(train_data)):
-            self.X_train.append(train_data[i-k:i, 0])
+            self.x_train.append(train_data[i-k:i, 0])
             self.y_train.append(train_data[i, 0])
 
-        # Convert the self.X_train and self.y_train to numpy arrays 
-        self.X_train, self.y_train = np.array(self.X_train), np.array(self.y_train)
+        # Convert the self.x_train and self.y_train to numpy arrays 
+        self.x_train, self.y_train = np.array(self.x_train), np.array(self.y_train)
 
         # Create the testing data set
         # Create a new array containing scaled values from index 1543 to 2002 
-        test_data = scaled_data[training_data_len - k: , :]
-        # Create the data sets self.X_test and self.y_test
-        self.X_test = []
+        test_data = scaled_data[training_data - k: , :]
+        # Create the data sets self.x_test and self.y_test
+        self.x_test = []
         # Rmaining 10% of the data needs to be given for testing 
-        self.y_test = dataset[training_data_len:]
+        self.y_test = dataset[training_data:]
         for i in range(k, len(test_data)):
-            self.X_test.append(test_data[i-k:i, 0])
+            self.x_test.append(test_data[i-k:i, 0])
 
         # Convert the data to a numpy array
-        self.X_test = np.array(self.X_test)
+        self.x_test = np.array(self.x_test)
         test_dates = comp_df['Date'].values
-        self.testd = test_dates[training_data_len:] # stores the test dates
+        self.testd = test_dates[training_data:] # stores the test dates
         
     def LSTM_model(self):
         
         st.title("Long Short-Term Memory (LSTM)")
         # Reshape the data
-        Xtrain = np.reshape(self.X_train, (self.X_train.shape[0], self.X_train.shape[1], 1))
+        xtrain = np.reshape(self.x_train, (self.x_train.shape[0], self.x_train.shape[1], 1))
         # Reshape the data
-        Xtest = np.reshape(self.X_test, (self.X_test.shape[0], self.X_test.shape[1], 1 ))
+        xtest = np.reshape(self.x_test, (self.x_test.shape[0], self.x_test.shape[1], 1 ))
         # Build the LSTM model
         model = Sequential()
-        model.add(LSTM(128, return_sequences=True, input_shape= (Xtrain.shape[1], 1)))
+        model.add(LSTM(128, return_sequences=True, input_shape= (xtrain.shape[1], 1)))
         model.add(Dropout(0.2))
         model.add(LSTM(50, return_sequences=False))
         model.add(Dropout(0.2))
@@ -94,9 +94,9 @@ class stock_predict_DL:
         # Compile the model
         model.compile(optimizer='adam', loss='mean_squared_error')
         # Train the model
-        model.fit(Xtrain, self.y_train, batch_size=1, epochs= 1)
+        model.fit(xtrain, self.y_train, batch_size=1, epochs= 1)
          # Get the models predicted price values 
-        predictions = model.predict(Xtest)
+        predictions = model.predict(xtest)
         # We need to inverse transform the scaled data to compare it with our unscaled y_test data
         predictions = self.scaler.inverse_transform(predictions)
         st.text("R2 SCORE")
@@ -117,7 +117,7 @@ class stock_predict_DL:
         st.title("Autoencoder")
         # No of encoding dimensions
         encoding_dim = 32
-        input_dim = self.X_train.shape[1]
+        input_dim = self.x_train.shape[1]
         input_layer = Input(shape=(input_dim, ))
         # Encoder
         encoder = Dense(encoding_dim, activation="tanh", activity_regularizer=regularizers.l1(1e-5))(input_layer)
@@ -130,8 +130,8 @@ class stock_predict_DL:
         b_size = 32
         # Fitting and compiling the train data using adam (stochastic gradient) optimiser and mse loss
         autoencoder.compile(optimizer='adam',loss='mean_squared_error')
-        autoencoder.fit(self.X_train, self.y_train,epochs=nb_epoch,batch_size = b_size,shuffle=True)
-        predictions = autoencoder.predict(self.X_test)
+        autoencoder.fit(self.x_train, self.y_train,epochs=nb_epoch,batch_size = b_size,shuffle=True)
+        predictions = autoencoder.predict(self.x_test)
         predictions = self.scaler.inverse_transform(predictions)
         st.text("R2 SCORE")
         st.text(metrics.r2_score(self.y_test, predictions))
@@ -151,9 +151,9 @@ class stock_predict_DL:
         st.title("Multilayer perceptron (MLP)")
         # We are using MLPRegressor as the problem at hand is a regression problem
         regr = MLPRegressor(hidden_layer_sizes = 100, alpha = 0.01,solver = 'lbfgs',shuffle=True)
-        regr.fit(self.X_train, self.y_train)
+        regr.fit(self.x_train, self.y_train)
         # predicting the price
-        y_pred = regr.predict(self.X_test)
+        y_pred = regr.predict(self.x_test)
         y_pred = y_pred.reshape(len(y_pred),1)
         y_pred = self.scaler.inverse_transform(y_pred)
         st.text("R2 SCORE")
@@ -172,7 +172,7 @@ class stock_predict_DL:
     def basic_ann_model(self):
         st.title("Basic Artificial Neural Network (ANN)")
         classifier = Sequential()
-        classifier.add(Dense(units=128, activation='relu', input_dim=self.X_train.shape[1]))
+        classifier.add(Dense(units=128, activation='relu', input_dim=self.x_train.shape[1]))
         classifier.add(Dropout(0.2))
         classifier.add(Dense(units=64))
         classifier.add(Dropout(0.2))
@@ -182,9 +182,9 @@ class stock_predict_DL:
         # Mean Square Error (MSE) is the most commonly used regression loss function.
         # MSE is the sum of squared distances between our target variable and predicted values.
         classifier.compile(optimizer='adam', loss='mean_squared_error')
-        classifier.fit(self.X_train, self.y_train, batch_size=32, epochs=10)
+        classifier.fit(self.x_train, self.y_train, batch_size=32, epochs=10)
         # Predicting the prices
-        prediction = classifier.predict(self.X_test)
+        prediction = classifier.predict(self.x_test)
         y_pred = self.scaler.inverse_transform(prediction)
         st.text("R2 SCORE")
         st.text(metrics.r2_score(self.y_test, y_pred))
@@ -203,16 +203,16 @@ class stock_predict_DL:
         
         st.title("Recurrent neural network (RNN)")
         # Reshape the data
-        Xtrain = np.reshape(self.X_train, (self.X_train.shape[0], self.X_train.shape[1], 1))
+        xtrain = np.reshape(self.x_train, (self.x_train.shape[0], self.x_train.shape[1], 1))
         # Reshape the data
-        Xtest = np.reshape(self.X_test, (self.X_test.shape[0], self.X_test.shape[1], 1 ))
+        xtest = np.reshape(self.x_test, (self.x_test.shape[0], self.x_test.shape[1], 1 ))
         model = Sequential()
-        model.add(SimpleRNN(units=4, input_shape=(Xtrain.shape[1], Xtrain.shape[2])))
+        model.add(SimpleRNN(units=4, input_shape=(xtrain.shape[1], xtrain.shape[2])))
         model.add(Dense(1))
         model.compile(loss='mean_squared_error', optimizer='adam')
-        model.fit(Xtrain, self.y_train, epochs=10, batch_size=1)
+        model.fit(xtrain, self.y_train, epochs=10, batch_size=1)
         # predicting the opening prices
-        prediction = model.predict(Xtest)
+        prediction = model.predict(xtest)
         y_pred = self.scaler.inverse_transform(prediction)
         st.text("R2 SCORE")
         st.text(metrics.r2_score(self.y_test, y_pred))
@@ -269,14 +269,14 @@ elif option == "Upload the data (.csv format)":
 if(flag == "True"):
     st.subheader('Visualization Price')
     data['Years'] = pd.to_datetime(data['Date'])
-    pr = st.selectbox('', ["Click to select", "Open","Close","High","Low"])
-    if pr =="Open":
+    column = st.selectbox('', ["Click to select", "Open","Close","High","Low"])
+    if column =="Open":
         st.line_chart(data=data, x='Years',y='Open')
-    elif pr =="Close":
+    elif column =="Close":
         st.line_chart(data=data, x='Years',y='Close')
-    elif pr =="High":
+    elif column =="High":
         st.line_chart(data=data, x='Years',y='High')
-    elif pr =="Low":
+    elif column =="Low":
         st.line_chart(data=data, x='Years',y='Low')
     # by default it is set that the stock price of a particular day is to be predicted based on the trend of the previous 60 days
     # the user is free to input the time frame based on which they want to predict a particular day's stock
